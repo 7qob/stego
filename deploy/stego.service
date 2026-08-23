@@ -1,0 +1,29 @@
+[Unit]
+Description=stego file host
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stego
+Group=stego
+WorkingDirectory=/opt/stego
+ExecStart=/usr/bin/node dist/main
+Restart=on-failure
+RestartSec=5
+
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Point these at your SSD mount and your real public URL.
+Environment=STEGO_DATA_DIR=/mnt/ssd/stego
+Environment=STEGO_BASE_URL=https://stego.example.com
+
+# Hardening. ReadWritePaths must include the data directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/mnt/ssd/stego
+
+[Install]
+WantedBy=multi-user.target
