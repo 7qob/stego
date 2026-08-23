@@ -77,6 +77,34 @@ export function sanitizeFilename(name: string): string {
   return cleaned.slice(0, 255) || 'file';
 }
 
+/**
+ * Extension to append when a source gives us bytes but no usable filename —
+ * a remote URL ending in `/watch` or a bare content-addressed path. Cosmetic
+ * only: nothing about serving depends on it, and unknown types stay bare.
+ */
+const EXTENSIONS: Record<string, string> = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/gif': '.gif',
+  'image/webp': '.webp',
+  'image/avif': '.avif',
+  'image/bmp': '.bmp',
+  'video/mp4': '.mp4',
+  'video/webm': '.webm',
+  'video/quicktime': '.mov',
+  'audio/mpeg': '.mp3',
+  'audio/ogg': '.ogg',
+  'audio/wav': '.wav',
+  'audio/x-wav': '.wav',
+  'audio/flac': '.flac',
+  'application/pdf': '.pdf',
+  'text/plain': '.txt',
+};
+
+export function extensionForMime(mime: string): string {
+  return EXTENSIONS[mime.split(';')[0].trim().toLowerCase()] ?? '';
+}
+
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   const units = ['KB', 'MB', 'GB', 'TB'];

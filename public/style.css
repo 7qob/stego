@@ -134,7 +134,38 @@ details .field {
   gap: 0.5rem;
 }
 
-input[type="text"] {
+/* Import row ---------------------------------------------------------- */
+
+.importrow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.importrow input[type="url"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.importrow button[disabled] {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* Indeterminate: an import's progress is invisible to the browser, so the
+   bar paces itself instead of pretending to know. */
+.progress.indeterminate .bar {
+  width: 35%;
+  animation: slide 1.1s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% { margin-left: -35%; }
+  100% { margin-left: 100%; }
+}
+
+input[type="text"],
+input[type="url"] {
   flex: 1;
   min-width: 0;
   padding: 0.55rem 0.7rem;

@@ -9,6 +9,8 @@ export interface FileRow {
   created_at: number;
   expires_at: number | null;
   downloads: number;
+  /** Set only for files pulled in by URL import; NULL for direct uploads. */
+  source_url: string | null;
 }
 
 /** Camel-cased view used everywhere above the repository layer. */
@@ -22,6 +24,7 @@ export interface StoredFile {
   createdAt: number;
   expiresAt: number | null;
   downloads: number;
+  sourceUrl: string | null;
 }
 
 export function toStoredFile(row: FileRow): StoredFile {
@@ -35,5 +38,6 @@ export function toStoredFile(row: FileRow): StoredFile {
     createdAt: row.created_at,
     expiresAt: row.expires_at,
     downloads: row.downloads,
+    sourceUrl: row.source_url ?? null,
   };
 }
