@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Runtime data — uploads and the SQLite database never belong in git.
+data/
+.env
+
+# OS noise
+.DS_Store
+Thumbs.db
