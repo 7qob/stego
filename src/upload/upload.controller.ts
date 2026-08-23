@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  Body,
   Controller,
   Get,
   Post,
@@ -13,6 +14,7 @@ import { config } from '../config/config';
 import { generateDeleteToken, generateFileId } from '../common/ids';
 import { sanitizeFilename } from '../common/mime';
 import { buildFileResponse } from '../files/file-response';
+import { parseExpiryMinutes } from '../files/expiry';
 import { FilesService } from '../files/files.service';
 
 /**
@@ -36,6 +38,8 @@ export class UploadController {
     return {
       maxFileSize: config.maxFileSize,
       retentionDays: config.retentionMs > 0 ? config.retentionMs / 86_400_000 : null,
+      defaultExpiryMinutes: config.expiry.defaultMinutes,
+      maxExpiryMinutes: config.expiry.maxMinutes,
       importEnabled: config.remote.enabled,
       maxImportSize: config.remote.enabled ? config.remote.maxBytes : null,
     };
@@ -48,8 +52,15 @@ export class UploadController {
       limits: { fileSize: config.maxFileSize, files: 1 },
     }),
   )
-  upload(@UploadedFile() file?: Express.Multer.File) {
+  upload(
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('minutes') minutes?: string,
+  ) {
     if (!file) throw new BadRequestException('No file provided (field name must be "file")');
+
+    // Multer fills req.body as it walks the stream, so this is only here if
+    // the client appended it ahead of the file part. Missing means "default".
+    const expiryMinutes = parseExpiryMinutes(minutes);
 
     const id = generateFileId();
     const originalName = sanitizeFilename(file.originalname);
@@ -65,6 +76,7 @@ export class UploadController {
       size: file.size,
       storageName: file.filename,
       deleteToken: generateDeleteToken(),
+      expiryMinutes,
     });
 
     return buildFileResponse(stored);

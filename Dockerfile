@@ -38,8 +38,18 @@ FROM node:22-bookworm-slim AS runtime
 
 WORKDIR /app
 
+# python3 and yt-dlp are here for the YouTube import path: yt-dlp resolves a
+# progressive stream URL, which the app then downloads itself through
+# remote/http.ts. Deliberately the unpinned "latest" release — YouTube breaks
+# older yt-dlp builds every few months, and a pinned tag would rot into a
+# thumbnail-only import. Set STEGO_YTDLP_ENABLED=0 to leave it unused.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tini \
+ && apt-get install -y --no-install-recommends tini ca-certificates curl python3 \
+ && curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
+      -o /usr/local/bin/yt-dlp \
+ && chmod 0755 /usr/local/bin/yt-dlp \
+ && apt-get purge -y curl \
+ && apt-get autoremove -y \
  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \

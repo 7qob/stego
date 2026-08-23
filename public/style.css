@@ -400,3 +400,48 @@ button,
 .error {
   display: flex;
 }
+
+/* The one upload option: delete after N minutes ------------------------ */
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.125rem 0.125rem 0;
+  font-size: 0.8125rem;
+  color: var(--fg-mute);
+}
+
+.option label {
+  color: var(--fg);
+}
+
+.option .icon {
+  width: 15px;
+  height: 15px;
+  color: var(--fg-mute);
+}
+
+input[type="number"] {
+  width: 5rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--bg);
+  color: var(--fg-strong);
+  border: var(--bw) solid var(--line);
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: 0.8125rem;
+  text-align: right;
+  transition: border-color 120ms;
+}
+
+input[type="number"]:hover {
+  border-color: var(--line-hi);
+}
+
+.note {
+  margin: 0;
+  padding: 0 0.125rem;
+  font-size: 0.75rem;
+  color: var(--fg-mute);
+}

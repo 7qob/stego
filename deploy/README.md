@@ -155,6 +155,23 @@ same hostname.
 CI publishes on push. On the Pi:
 
 ```bash
+cd ~/stego && ./deploy/update.sh
+```
+
+That pulls the compose file, pulls the image, restarts, waits on the
+container's `HEALTHCHECK`, and checks `STEGO_BASE_URL/api/limits` through the
+tunnel. **If the new image fails its healthcheck it rolls back to the image
+that was running before** — an update that breaks the container should not also
+leave it broken.
+
+It exits early if the pulled image is identical to the running one. That is
+usually not an error: the `paths:` filter on the workflow means a push touching
+only docs or `deploy/` publishes nothing. Check the Actions tab, or use
+`./deploy/update.sh --force` to redeploy the same image anyway.
+
+The equivalent by hand, if you would rather watch each step:
+
+```bash
 cd ~/stego && git pull && docker compose pull && docker compose up -d
 ```
 

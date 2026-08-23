@@ -1,4 +1,5 @@
 import { redgifs } from './redgifs';
+import { youtube } from './youtube';
 
 /**
  * One thing we might be able to download. Extractors return an ordered list
@@ -25,7 +26,7 @@ export interface SiteExtractor {
   resolve(url: URL): Promise<MediaCandidate[]>;
 }
 
-const extractors: SiteExtractor[] = [redgifs];
+const extractors: SiteExtractor[] = [redgifs, youtube];
 
 export function extractorFor(url: URL): SiteExtractor | null {
   return extractors.find((candidate) => candidate.supports(url)) ?? null;

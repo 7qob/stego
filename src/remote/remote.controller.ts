@@ -8,12 +8,15 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { config } from '../config/config';
+import { parseExpiryMinutes } from '../files/expiry';
 import { buildFileResponse, type FileResponse } from '../files/file-response';
 import { RemoteFetchError } from './http';
 import { RemoteService } from './remote.service';
 
 interface ImportBody {
   url?: unknown;
+  /** Delete-after timer, same field name and meaning as on /api/upload. */
+  minutes?: unknown;
 }
 
 /**
@@ -37,8 +40,10 @@ export class RemoteController {
     if (!url) throw new BadRequestException('No URL provided (send {"url": "https://…"})');
     if (url.length > 2048) throw new BadRequestException('That URL is absurdly long');
 
+    const expiryMinutes = parseExpiryMinutes(body?.minutes);
+
     try {
-      const result = await this.remoteService.importUrl(url);
+      const result = await this.remoteService.importUrl(url, expiryMinutes);
       return buildFileResponse(result.file, result.via);
     } catch (error) {
       if (error instanceof HttpException) throw error;
