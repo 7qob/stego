@@ -9,3 +9,6 @@ data/
 # OS noise
 .DS_Store
 Thumbs.db
+
+# Local AI/assistant working notes.
+instructions.md
