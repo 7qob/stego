@@ -1,0 +1,17 @@
+# Everything the image does not need. node_modules especially: the deps stage
+# installs arm64 binaries, and copying an x64 tree in would shadow them.
+node_modules/
+dist/
+data/
+.git/
+.github/
+.claude/
+assets/
+deploy/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+docker-compose*.yml
+README.md
+CLAUDE.md

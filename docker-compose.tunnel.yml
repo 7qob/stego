@@ -1,0 +1,38 @@
+# Optional: run cloudflared as a container instead of a host service.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+#
+# This is the *dashboard* path — create the tunnel under Zero Trust > Networks >
+# Tunnels, point its public hostname at http://stego:3000, and put the connector
+# token in .env as TUNNEL_TOKEN. Routing lives in Cloudflare's UI, not in git.
+#
+# deploy/tunnel-setup.sh does the same job from the CLI with the config checked
+# in here instead; use one or the other, not both.
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: stego-tunnel
+    restart: unless-stopped
+
+    # --no-autoupdate: let the image tag control the version, so a restart is
+    # reproducible rather than whatever shipped that morning.
+    command: tunnel --no-autoupdate run
+
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?set TUNNEL_TOKEN in .env}
+
+    # Reaches the app over the compose network as http://stego:3000 — the
+    # published loopback port is not involved.
+    depends_on:
+      stego:
+        condition: service_healthy
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

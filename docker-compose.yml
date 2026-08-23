@@ -1,0 +1,50 @@
+# Runs on the Pi. `docker compose pull && docker compose up -d` after CI has
+# published a new image; nothing is ever built here.
+#
+# Values come from .env next to this file — see .env.example.
+
+services:
+  stego:
+    image: ${STEGO_IMAGE:-ghcr.io/7qob/stego:latest}
+    container_name: stego
+    restart: unless-stopped
+
+    # Loopback only. cloudflared runs on the host and dials 127.0.0.1:3000;
+    # nothing needs to reach this from the LAN. Change to "3000:3000" if you
+    # also want it reachable at http://<pi>:3000 — but then STEGO_BASE_URL and
+    # the tunnel hostname disagree, and share links will point at the wrong one.
+    ports:
+      - "127.0.0.1:${STEGO_PORT:-3000}:3000"
+
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      STEGO_DATA_DIR: /data
+      # Must be the URL Discord will actually fetch. Get this wrong and every
+      # share link points somewhere that does not exist.
+      STEGO_BASE_URL: ${STEGO_BASE_URL:?set STEGO_BASE_URL in .env}
+      # Cloudflare's free plan rejects request bodies over 100 MB at the edge,
+      # so anything larger fails before it reaches the Pi. Default sits just
+      # under it so the app rejects it with a useful error instead.
+      STEGO_MAX_FILE_SIZE: ${STEGO_MAX_FILE_SIZE:-99614720}
+      STEGO_RETENTION_DAYS: ${STEGO_RETENTION_DAYS:-0}
+
+    # Uploads and stego.db. Put this on the SSD, never the SD card.
+    # The container runs as uid 1000, same as the default Pi user, so a
+    # directory you own is writable as-is.
+    volumes:
+      - ${STEGO_HOST_DATA_DIR:-/mnt/ssd/stego}:/data
+
+    # The data volume is the only path the app writes to.
+    read_only: true
+    tmpfs:
+      - /tmp
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

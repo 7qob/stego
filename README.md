@@ -87,23 +87,30 @@ curl -F file=@out.png -F password="hunter2" \
 
 ## Running on a Raspberry Pi 5
 
-**Put the data on an SSD, not the SD card.** A file host writes constantly and
-will wear out SD flash.
+GitHub Actions builds an arm64 image on every push and publishes it to GHCR;
+the Pi pulls it and never compiles anything. **Put the data on an SSD, not the
+SD card** — a file host writes constantly and will wear out SD flash.
 
 ```bash
-STEGO_DATA_DIR=/mnt/ssd/stego
+git clone https://github.com/7qob/stego.git ~/stego && cd ~/stego
+cp .env.example .env          # set STEGO_BASE_URL
+docker compose pull && docker compose up -d
 ```
 
-`better-sqlite3` and `sharp` both ship prebuilt arm64 binaries, so `npm install`
-needs no compiler.
-
-Build and run under systemd:
+The app is published on `127.0.0.1:3000` only, so nothing can reach it until you
+expose it deliberately:
 
 ```bash
-npm ci && npm run build
-sudo cp deploy/stego.service /etc/systemd/system/
-sudo systemctl enable --now stego
+./deploy/tunnel-setup.sh stego.example.com
 ```
+
+That installs `cloudflared`, creates the tunnel, writes its config, creates the
+DNS record and starts the service.
+
+**[deploy/README.md](deploy/README.md) is the full runbook** — the GHCR
+visibility step that trips everyone up, the Cloudflare settings that break
+Discord embeds, rollback, and troubleshooting. `deploy/stego.service` is there
+if you would rather build on the Pi and run under systemd without Docker.
 
 ### Exposing it
 
@@ -131,4 +138,5 @@ src/
   views/      server-rendered HTML (OpenGraph pages)
   cleanup/    hourly purge of expired files
 public/       upload UI (plain HTML/CSS)
+deploy/       Pi runbook, Cloudflare Tunnel script, systemd unit
 ```
