@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>stego</title>
+    <meta name="theme-color" content="#101418" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="masthead">
+        <h1>stego</h1>
+        <p>Drop a file. Get a link. Paste it anywhere.</p>
+      </header>
+
+      <label id="dropzone" class="dropzone" for="picker">
+        <input id="picker" type="file" hidden />
+        <span class="dropzone-title">Drop a file here</span>
+        <span class="dropzone-hint" id="hint">or click to choose</span>
+      </label>
+
+      <div id="progress" class="progress" hidden>
+        <div id="bar" class="bar"></div>
+      </div>
+
+      <section id="result" class="result" hidden>
+        <div class="field">
+          <label for="link">Share link</label>
+          <div class="copyrow">
+            <input id="link" type="text" readonly />
+            <button type="button" data-copy="link">Copy</button>
+          </div>
+          <p class="note" id="embedNote"></p>
+        </div>
+
+        <details>
+          <summary>Other links</summary>
+          <div class="field">
+            <label for="raw">Direct file</label>
+            <div class="copyrow">
+              <input id="raw" type="text" readonly />
+              <button type="button" data-copy="raw">Copy</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="del">Delete link — save this, it is shown once</label>
+            <div class="copyrow">
+              <input id="del" type="text" readonly />
+              <button type="button" data-copy="del">Copy</button>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <p id="error" class="error" hidden></p>
+
+      <footer class="footnote">
+        Self-hosted. <a href="/api/limits">limits</a>
+      </footer>
+    </main>
+
+    <script>
+      const dropzone = document.getElementById('dropzone');
+      const picker = document.getElementById('picker');
+      const progress = document.getElementById('progress');
+      const bar = document.getElementById('bar');
+      const result = document.getElementById('result');
+      const errorEl = document.getElementById('error');
+      const hint = document.getElementById('hint');
+
+      fetch('/api/limits')
+        .then((r) => r.json())
+        .then((l) => {
+          hint.textContent = `or click to choose · up to ${formatBytes(l.maxFileSize)}`;
+        })
+        .catch(() => {});
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        const units = ['KB', 'MB', 'GB', 'TB'];
+        let v = bytes / 1024;
+        let i = 0;
+        while (v >= 1024 && i < units.length - 1) {
+          v /= 1024;
+          i++;
+        }
+        return v.toFixed(v < 10 ? 1 : 0) + ' ' + units[i];
+      }
+
+      ['dragenter', 'dragover'].forEach((type) =>
+        dropzone.addEventListener(type, (e) => {
+          e.preventDefault();
+          dropzone.classList.add('active');
+        }),
+      );
+
+      ['dragleave', 'drop'].forEach((type) =>
+        dropzone.addEventListener(type, (e) => {
+          e.preventDefault();
+          dropzone.classList.remove('active');
+        }),
+      );
+
+      dropzone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file) upload(file);
+      });
+
+      picker.addEventListener('change', () => {
+        if (picker.files[0]) upload(picker.files[0]);
+      });
+
+      document.querySelectorAll('[data-copy]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const input = document.getElementById(button.dataset.copy);
+          await navigator.clipboard.writeText(input.value);
+          const original = button.textContent;
+          button.textContent = 'Copied';
+          setTimeout(() => (button.textContent = original), 1200);
+        });
+      });
+
+      function upload(file) {
+        errorEl.hidden = true;
+        result.hidden = true;
+        progress.hidden = false;
+        bar.style.width = '0%';
+
+        const body = new FormData();
+        body.append('file', file);
+
+        // XHR rather than fetch: it reports upload progress, which matters
+        // when the server is a Pi on a home uplink.
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/upload');
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            bar.style.width = (e.loaded / e.total) * 100 + '%';
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          progress.hidden = true;
+          let payload;
+          try {
+            payload = JSON.parse(xhr.responseText);
+          } catch {
+            return fail('Unexpected server response');
+          }
+          if (xhr.status >= 400) return fail(payload.message || 'Upload failed');
+          show(payload);
+        });
+
+        xhr.addEventListener('error', () => {
+          progress.hidden = true;
+          fail('Network error');
+        });
+
+        xhr.send(body);
+      }
+
+      function show(payload) {
+        document.getElementById('link').value = payload.url;
+        document.getElementById('raw').value = payload.rawUrl;
+        document.getElementById('del').value = payload.deleteUrl;
+        document.getElementById('embedNote').textContent = payload.embeddable
+          ? 'Embeds inline in Discord.'
+          : 'Shows as a link preview in Discord.';
+        result.hidden = false;
+      }
+
+      function fail(message) {
+        errorEl.textContent = message;
+        errorEl.hidden = false;
+      }
+    </script>
+  </body>
+</html>
