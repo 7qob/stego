@@ -11,7 +11,8 @@ import { diskStorage } from 'multer';
 import { randomBytes } from 'node:crypto';
 import { config } from '../config/config';
 import { generateDeleteToken, generateFileId } from '../common/ids';
-import { decideServing, sanitizeFilename } from '../common/mime';
+import { sanitizeFilename } from '../common/mime';
+import { buildFileResponse } from '../files/file-response';
 import { FilesService } from '../files/files.service';
 
 /**
@@ -35,6 +36,8 @@ export class UploadController {
     return {
       maxFileSize: config.maxFileSize,
       retentionDays: config.retentionMs > 0 ? config.retentionMs / 86_400_000 : null,
+      importEnabled: config.remote.enabled,
+      maxImportSize: config.remote.enabled ? config.remote.maxBytes : null,
     };
   }
 
@@ -64,23 +67,6 @@ export class UploadController {
       deleteToken: generateDeleteToken(),
     });
 
-    const serving = decideServing(stored.mime);
-
-    return {
-      id: stored.id,
-      name: stored.originalName,
-      size: stored.size,
-      type: serving.contentType,
-      /** Paste this into Discord. */
-      url: `${config.baseUrl}/f/${stored.id}`,
-      viewUrl: `${config.baseUrl}/v/${stored.id}`,
-      rawUrl: `${config.baseUrl}/r/${stored.id}`,
-      downloadUrl: `${config.baseUrl}/d/${stored.id}`,
-      /** Shown once. Keep it to delete the file later. */
-      deleteToken: stored.deleteToken,
-      deleteUrl: `${config.baseUrl}/api/files/${stored.id}?token=${stored.deleteToken}`,
-      embeddable: serving.embeddable,
-      expiresAt: stored.expiresAt,
-    };
+    return buildFileResponse(stored);
   }
 }

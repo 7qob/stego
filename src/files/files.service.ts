@@ -12,6 +12,8 @@ export interface CreateFileInput {
   size: number;
   storageName: string;
   deleteToken: string;
+  /** Where the bytes came from, when they were imported rather than uploaded. */
+  sourceUrl?: string | null;
 }
 
 @Injectable()
@@ -27,8 +29,8 @@ export class FilesService {
     this.dbService.db
       .prepare(
         `INSERT INTO files
-           (id, original_name, mime, size, storage_name, delete_token, created_at, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, original_name, mime, size, storage_name, delete_token, created_at, expires_at, source_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         input.id,
@@ -39,10 +41,12 @@ export class FilesService {
         input.deleteToken,
         now,
         expiresAt,
+        input.sourceUrl ?? null,
       );
 
     return {
       ...input,
+      sourceUrl: input.sourceUrl ?? null,
       createdAt: now,
       expiresAt,
       downloads: 0,

@@ -11,7 +11,7 @@
     <main class="app">
       <header class="masthead">
         <h1>stego</h1>
-        <p>Drop a file. Get a link. Paste it anywhere.</p>
+        <p>Drop a file or paste a link. Get a link back. Paste it anywhere.</p>
       </header>
 
       <label id="dropzone" class="dropzone" for="picker">
@@ -19,6 +19,17 @@
         <span class="dropzone-title">Drop a file here</span>
         <span class="dropzone-hint" id="hint">or click to choose</span>
       </label>
+
+      <form id="importForm" class="importrow" hidden>
+        <input
+          id="importUrl"
+          type="url"
+          placeholder="https://… paste a link to grab"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button type="submit" id="importBtn">Grab</button>
+      </form>
 
       <div id="progress" class="progress" hidden>
         <div id="bar" class="bar"></div>
@@ -68,11 +79,15 @@
       const result = document.getElementById('result');
       const errorEl = document.getElementById('error');
       const hint = document.getElementById('hint');
+      const importForm = document.getElementById('importForm');
+      const importUrl = document.getElementById('importUrl');
+      const importBtn = document.getElementById('importBtn');
 
       fetch('/api/limits')
         .then((r) => r.json())
         .then((l) => {
           hint.textContent = `or click to choose · up to ${formatBytes(l.maxFileSize)}`;
+          if (l.importEnabled) importForm.hidden = false;
         })
         .catch(() => {});
 
@@ -104,7 +119,17 @@
 
       dropzone.addEventListener('drop', (e) => {
         const file = e.dataTransfer?.files?.[0];
-        if (file) upload(file);
+        if (file) return upload(file);
+
+        // Dragging an image out of another tab hands us a URL, not a file.
+        const dropped = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
+        if (dropped && /^https?:\/\//i.test(dropped.trim())) grab(dropped.trim());
+      });
+
+      importForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const value = importUrl.value.trim();
+        if (value) grab(value);
       });
 
       picker.addEventListener('change', () => {
@@ -161,13 +186,46 @@
         xhr.send(body);
       }
 
+      /** Pull a remote URL server-side. No upload progress exists to report. */
+      function grab(url) {
+        errorEl.hidden = true;
+        result.hidden = true;
+        importUrl.value = url;
+        importBtn.disabled = true;
+        importBtn.textContent = 'Grabbing';
+        progress.hidden = false;
+        progress.classList.add('indeterminate');
+
+        fetch('/api/import', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ url }),
+        })
+          .then(async (response) => {
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(payload.message || 'Import failed');
+            show(payload);
+            importUrl.value = '';
+          })
+          .catch((e) => fail(e.message))
+          .finally(() => {
+            progress.hidden = true;
+            progress.classList.remove('indeterminate');
+            importBtn.disabled = false;
+            importBtn.textContent = 'Grab';
+          });
+      }
+
       function show(payload) {
         document.getElementById('link').value = payload.url;
         document.getElementById('raw').value = payload.rawUrl;
         document.getElementById('del').value = payload.deleteUrl;
-        document.getElementById('embedNote').textContent = payload.embeddable
+        const embedNote = payload.embeddable
           ? 'Embeds inline in Discord.'
           : 'Shows as a link preview in Discord.';
+        document.getElementById('embedNote').textContent = payload.via
+          ? `${embedNote} Grabbed via ${payload.via}.`
+          : embedNote;
         result.hidden = false;
       }
 

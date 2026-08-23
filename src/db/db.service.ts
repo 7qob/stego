@@ -46,5 +46,15 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
       CREATE INDEX IF NOT EXISTS idx_files_expires_at ON files(expires_at);
       CREATE INDEX IF NOT EXISTS idx_files_created_at ON files(created_at);
     `);
+
+    // Added with URL import. Databases created before that need the column
+    // bolted on; ALTER TABLE ADD COLUMN has no IF NOT EXISTS, so check first.
+    this.addColumnIfMissing('files', 'source_url', 'TEXT');
+  }
+
+  private addColumnIfMissing(table: string, column: string, definition: string): void {
+    const columns = this.database.pragma(`table_info(${table})`) as Array<{ name: string }>;
+    if (columns.some((entry) => entry.name === column)) return;
+    this.database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
