@@ -123,8 +123,20 @@ def get(t, key):
     return None
 
 
+def is_deleted(t):
+    v = get(t, "deleted_at")
+    if not v:
+        return False
+    # A live tunnel does not always report deleted_at as null: some cloudflared
+    # versions emit the zero-value timestamp "0001-01-01T00:00:00Z" instead,
+    # which is a non-empty string and so reads as truthy. Treating that as
+    # "deleted" silently hides every existing tunnel, which looks like the
+    # lookup failing rather than the filter being wrong.
+    return not str(v).startswith("0001-01-01")
+
+
 for t in tunnels:
-    if get(t, "name") == name and not get(t, "deleted_at"):
+    if get(t, "name") == name and not is_deleted(t):
         print(get(t, "id") or "")
         break
 ' "$1"

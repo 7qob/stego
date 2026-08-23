@@ -25,11 +25,9 @@
       <symbol id="i-check" viewBox="0 0 24 24">
         <polyline points="20 6 9 17 4 12" />
       </symbol>
-      <symbol id="i-trash" viewBox="0 0 24 24">
-        <polyline points="3 6 5 6 21 6" />
-        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        <line x1="10" y1="11" x2="10" y2="17" />
-        <line x1="14" y1="11" x2="14" y2="17" />
+      <symbol id="i-clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
       </symbol>
       <symbol id="i-github" viewBox="0 0 24 24">
         <path
@@ -73,6 +71,12 @@
               <svg class="icon"><use href="#i-link" /></svg>Grab
             </button>
           </form>
+          <div class="option">
+            <svg class="icon"><use href="#i-clock" /></svg>
+            <label for="minutes">Delete after</label>
+            <input id="minutes" type="number" min="0" step="1" inputmode="numeric" value="60" />
+            <span id="minutesHint">minutes</span>
+          </div>
         </div>
       </section>
 
@@ -89,22 +93,7 @@
           </span>
           <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
         </button>
-        <button type="button" class="row" data-copy="rawUrl">
-          <svg class="icon"><use href="#i-arrow" /></svg>
-          <span class="row-text">
-            <span class="row-label">Direct file</span>
-            <span class="row-desc" id="rawUrlDesc"></span>
-          </span>
-          <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
-        </button>
-        <button type="button" class="row" data-copy="deleteUrl">
-          <svg class="icon"><use href="#i-trash" /></svg>
-          <span class="row-text">
-            <span class="row-label">Delete link</span>
-            <span class="row-desc">Save it — shown once</span>
-          </span>
-          <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
-        </button>
+        <p class="note" id="expiryNote"></p>
       </section>
 
       <section class="section" id="errorSection" hidden>
@@ -136,6 +125,9 @@
       const importForm = document.getElementById('importForm');
       const importUrl = document.getElementById('importUrl');
       const importBtn = document.getElementById('importBtn');
+      const minutes = document.getElementById('minutes');
+      const minutesHint = document.getElementById('minutesHint');
+      const expiryNote = document.getElementById('expiryNote');
 
       /** Copy targets live here, not in inputs — the rows show them as text. */
       const values = {};
@@ -145,6 +137,9 @@
         .then((l) => {
           hint.textContent = `or click to choose · up to ${formatBytes(l.maxFileSize)}`;
           if (l.importEnabled) importForm.hidden = false;
+          minutes.value = String(l.defaultExpiryMinutes);
+          minutes.max = String(l.maxExpiryMinutes);
+          minutesHint.textContent = 'minutes · 0 keeps it';
         })
         .catch(() => {});
 
@@ -207,6 +202,9 @@
         start();
 
         const body = new FormData();
+        // Ahead of the file: multer only has this in req.body if the field
+        // arrives before the part it has to stream to disk.
+        body.append('minutes', chosenMinutes());
         body.append('file', file);
 
         // XHR rather than fetch: it reports upload progress, which matters
@@ -248,7 +246,7 @@
         fetch('/api/import', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ url }),
+          body: JSON.stringify({ url, minutes: Number(chosenMinutes()) }),
         })
           .then(async (response) => {
             const payload = await response.json().catch(() => ({}));
@@ -264,6 +262,22 @@
           });
       }
 
+      /** Blank or negative is the same as "no timer". */
+      function chosenMinutes() {
+        const value = parseInt(minutes.value, 10);
+        return String(Number.isFinite(value) && value > 0 ? value : 0);
+      }
+
+      function formatExpiry(expiresAt) {
+        if (!expiresAt) return 'Kept until you delete it';
+        const left = Math.max(0, Math.round((expiresAt - Date.now()) / 60000));
+        const when = new Date(expiresAt).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        return `Deletes in ${left} min · ${when}`;
+      }
+
       function start() {
         errorSection.hidden = true;
         result.hidden = true;
@@ -273,10 +287,8 @@
 
       function show(payload) {
         values.url = payload.url;
-        values.rawUrl = payload.rawUrl;
-        values.deleteUrl = payload.deleteUrl;
         document.getElementById('urlDesc').textContent = payload.url;
-        document.getElementById('rawUrlDesc').textContent = payload.rawUrl;
+        expiryNote.textContent = formatExpiry(payload.expiresAt);
         result.hidden = false;
       }
 

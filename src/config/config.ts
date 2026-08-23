@@ -15,8 +15,21 @@ export const config = {
 
   maxFileSize: Number(process.env.STEGO_MAX_FILE_SIZE ?? 100 * 1024 * 1024),
 
-  /** 0 disables expiry entirely. */
+  /**
+   * Instance-wide ceiling. 0 disables it, in which case a file lives exactly
+   * as long as the per-upload timer asks for.
+   */
   retentionMs: retentionDays > 0 ? retentionDays * 24 * 60 * 60 * 1000 : 0,
+
+  /**
+   * The one knob the UI offers: delete after N minutes. 0 minutes means "no
+   * timer" and leaves the file to the retention ceiling above (forever, if
+   * that is off too). retentionMs still wins whenever it is shorter.
+   */
+  expiry: {
+    defaultMinutes: Number(process.env.STEGO_EXPIRY_DEFAULT_MINUTES ?? 60),
+    maxMinutes: Number(process.env.STEGO_EXPIRY_MAX_MINUTES ?? 7 * 24 * 60),
+  },
 
   /** URL import (`POST /api/import`). */
   remote: {
@@ -47,6 +60,30 @@ export const config = {
      * against a dev server is the only good reason to set it.
      */
     allowPrivateTargets: process.env.STEGO_IMPORT_ALLOW_PRIVATE === '1',
+
+    /**
+     * YouTube and the other sites yt-dlp knows. Without it an imported
+     * YouTube link still works, it just stores the thumbnail — the extractor
+     * falls back to that whenever this is off or the binary is missing.
+     */
+    ytdlp: {
+      enabled: process.env.STEGO_YTDLP_ENABLED !== '0',
+
+      path: process.env.STEGO_YTDLP_PATH ?? 'yt-dlp',
+
+      /** Resolving a stream URL is a couple of API calls; it should be quick. */
+      timeoutMs: Number(process.env.STEGO_YTDLP_TIMEOUT_MS ?? 20_000),
+
+      /**
+       * Progressive (already-muxed) formats only. Anything else hands back a
+       * video-only and an audio-only URL that would need ffmpeg to join —
+       * this way the bytes we download are the file we serve. 720p is the
+       * practical ceiling for muxed YouTube formats anyway.
+       */
+      format:
+        process.env.STEGO_YTDLP_FORMAT ??
+        'b[ext=mp4][vcodec!=none][acodec!=none]/b[vcodec!=none][acodec!=none]',
+    },
 
     /** Some CDNs 403 an obviously-scripted client. */
     userAgent:

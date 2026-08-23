@@ -54,20 +54,20 @@ export class RemoteService {
 
   constructor(private readonly filesService: FilesService) {}
 
-  async importUrl(rawUrl: string): Promise<ImportResult> {
+  async importUrl(rawUrl: string, expiryMinutes?: number): Promise<ImportResult> {
     if (this.inFlight >= config.remote.maxConcurrent) {
       throw new RemoteFetchError('Too many imports running right now — try again in a moment');
     }
 
     this.inFlight++;
     try {
-      return await this.run(rawUrl.trim());
+      return await this.run(rawUrl.trim(), expiryMinutes);
     } finally {
       this.inFlight--;
     }
   }
 
-  private async run(rawUrl: string): Promise<ImportResult> {
+  private async run(rawUrl: string, expiryMinutes?: number): Promise<ImportResult> {
     let url: URL;
     try {
       url = new URL(rawUrl);
@@ -79,7 +79,7 @@ export class RemoteService {
     const site = extractorFor(url);
     if (site) {
       const candidates = await site.resolve(url);
-      return this.tryCandidates(candidates, rawUrl);
+      return this.tryCandidates(candidates, rawUrl, expiryMinutes);
     }
 
     // Otherwise: fetch it once and see what it is. A direct media link is by
@@ -87,7 +87,7 @@ export class RemoteService {
     const probe = await openRemote(rawUrl);
 
     if (!isHtml(probe.contentType)) {
-      return this.store(probe, rawUrl, 'direct link');
+      return this.store(probe, rawUrl, 'direct link', expiryMinutes);
     }
 
     const html = await readText(probe, config.remote.maxHtmlBytes);
@@ -103,7 +103,7 @@ export class RemoteService {
       });
 
       if (!isHtml(asCrawler.contentType)) {
-        return this.store(asCrawler, rawUrl, 'direct link');
+        return this.store(asCrawler, rawUrl, 'direct link', expiryMinutes);
       }
 
       candidates = candidatesFromHtml(
@@ -116,7 +116,7 @@ export class RemoteService {
       throw new RemoteFetchError('That page does not advertise an image or a video');
     }
 
-    return this.tryCandidates(candidates, rawUrl);
+    return this.tryCandidates(candidates, rawUrl, expiryMinutes);
   }
 
   /**
@@ -125,7 +125,11 @@ export class RemoteService {
    * frequently an embed *page*, and the page's `og:image` right behind it in
    * the list is a perfectly good import.
    */
-  private async tryCandidates(candidates: MediaCandidate[], sourceUrl: string): Promise<ImportResult> {
+  private async tryCandidates(
+    candidates: MediaCandidate[],
+    sourceUrl: string,
+    expiryMinutes?: number,
+  ): Promise<ImportResult> {
     const problems: string[] = [];
 
     for (const candidate of candidates) {
@@ -143,7 +147,7 @@ export class RemoteService {
         continue;
       }
 
-      return this.store(response, sourceUrl, candidate.label, candidate.filename);
+      return this.store(response, sourceUrl, candidate.label, expiryMinutes, candidate.filename);
     }
 
     throw new RemoteFetchError(
@@ -155,6 +159,7 @@ export class RemoteService {
     response: RemoteResponse,
     sourceUrl: string,
     via: string,
+    expiryMinutes?: number,
     preferredName?: string,
   ): Promise<ImportResult> {
     const limit = config.remote.maxBytes;
@@ -196,6 +201,7 @@ export class RemoteService {
       size,
       storageName,
       deleteToken: generateDeleteToken(),
+      expiryMinutes,
       sourceUrl,
     });
 

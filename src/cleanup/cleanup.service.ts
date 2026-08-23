@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
-import { config } from '../config/config';
 import { FilesService } from '../files/files.service';
 
 @Injectable()
@@ -9,11 +8,14 @@ export class CleanupService {
 
   constructor(private readonly filesService: FilesService) {}
 
-  /** Hourly is plenty — expiry is also enforced lazily on every lookup. */
-  @Interval(60 * 60 * 1000)
+  /**
+   * Every minute, because the upload form hands out timers in minutes: an
+   * hourly sweep would leave a "delete after 5 minutes" file on disk for
+   * another 55. Lookups still reap lazily, so this is only about the bytes.
+   * The query is one indexed scan of a table with a few thousand rows.
+   */
+  @Interval(60 * 1000)
   async purge(): Promise<void> {
-    if (config.retentionMs === 0) return;
-
     const removed = await this.filesService.purgeExpired();
     if (removed > 0) {
       this.logger.log(`Purged ${removed} expired file(s)`);

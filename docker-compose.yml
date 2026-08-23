@@ -28,6 +28,14 @@ services:
       # under it so the app rejects it with a useful error instead.
       STEGO_MAX_FILE_SIZE: ${STEGO_MAX_FILE_SIZE:-99614720}
       STEGO_RETENTION_DAYS: ${STEGO_RETENTION_DAYS:-0}
+      # The upload form's only option. The default fills the box; the max is
+      # the ceiling it will accept. STEGO_RETENTION_DAYS above still wins
+      # whenever it is shorter.
+      STEGO_EXPIRY_DEFAULT_MINUTES: ${STEGO_EXPIRY_DEFAULT_MINUTES:-60}
+      STEGO_EXPIRY_MAX_MINUTES: ${STEGO_EXPIRY_MAX_MINUTES:-10080}
+      # Set to 0 to import YouTube links as their thumbnail, the way it
+      # behaved before yt-dlp shipped in the image.
+      STEGO_YTDLP_ENABLED: ${STEGO_YTDLP_ENABLED:-1}
 
     # Uploads and stego.db. Put this on the SSD, never the SD card.
     # The container runs as uid 1000, same as the default Pi user, so a

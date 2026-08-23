@@ -3,6 +3,7 @@ import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { config } from '../config/config';
 import { DbService } from '../db/db.service';
+import { expiryFor } from './expiry';
 import { FileRow, StoredFile, toStoredFile } from './file.entity';
 
 export interface CreateFileInput {
@@ -12,6 +13,8 @@ export interface CreateFileInput {
   size: number;
   storageName: string;
   deleteToken: string;
+  /** Delete-after timer in minutes. 0 (or absent) means no timer of its own. */
+  expiryMinutes?: number;
   /** Where the bytes came from, when they were imported rather than uploaded. */
   sourceUrl?: string | null;
 }
@@ -24,7 +27,7 @@ export class FilesService {
 
   create(input: CreateFileInput): StoredFile {
     const now = Date.now();
-    const expiresAt = config.retentionMs > 0 ? now + config.retentionMs : null;
+    const expiresAt = expiryFor(input.expiryMinutes, now);
 
     this.dbService.db
       .prepare(
