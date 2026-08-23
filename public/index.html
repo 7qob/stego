@@ -4,84 +4,141 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>stego</title>
-    <meta name="theme-color" content="#101418" />
+    <meta name="theme-color" content="#0e0e0e" />
     <link rel="stylesheet" href="/style.css" />
   </head>
   <body>
-    <main class="app">
-      <header class="masthead">
+    <svg hidden aria-hidden="true">
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3" />
+        <polyline points="16 16 12 12 8 16" />
+        <line x1="12" y1="12" x2="12" y2="21" />
+      </symbol>
+      <symbol id="i-link" viewBox="0 0 24 24">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <polyline points="20 6 9 17 4 12" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <line x1="10" y1="11" x2="10" y2="17" />
+        <line x1="14" y1="11" x2="14" y2="17" />
+      </symbol>
+      <symbol id="i-github" viewBox="0 0 24 24">
+        <path
+          d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"
+        />
+      </symbol>
+      <symbol id="i-arrow" viewBox="0 0 24 24">
+        <line x1="7" y1="17" x2="17" y2="7" />
+        <polyline points="7 7 17 7 17 17" />
+      </symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </symbol>
+    </svg>
+
+    <main class="panel">
+      <header class="section head">
         <h1>stego</h1>
-        <p>Drop a file or paste a link. Get a link back. Paste it anywhere.</p>
+        <span class="handle">7qob</span>
       </header>
 
-      <label id="dropzone" class="dropzone" for="picker">
-        <input id="picker" type="file" hidden />
-        <span class="dropzone-title">Drop a file here</span>
-        <span class="dropzone-hint" id="hint">or click to choose</span>
-      </label>
-
-      <form id="importForm" class="importrow" hidden>
-        <input
-          id="importUrl"
-          type="url"
-          placeholder="https://… paste a link to grab"
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button type="submit" id="importBtn">Grab</button>
-      </form>
-
-      <div id="progress" class="progress" hidden>
-        <div id="bar" class="bar"></div>
-      </div>
-
-      <section id="result" class="result" hidden>
-        <div class="field">
-          <label for="link">Share link</label>
-          <div class="copyrow">
-            <input id="link" type="text" readonly />
-            <button type="button" data-copy="link">Copy</button>
-          </div>
-          <p class="note" id="embedNote"></p>
+      <section class="section">
+        <div class="stage" id="stage">
+          <label class="drop" for="picker">
+            <input id="picker" type="file" hidden />
+            <svg class="icon"><use href="#i-upload" /></svg>
+            <span class="drop-title">Drop a file</span>
+            <span class="drop-hint" id="hint">or click to choose</span>
+          </label>
+          <form class="paste" id="importForm" hidden>
+            <input
+              id="importUrl"
+              type="url"
+              placeholder="or paste a link…"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <button type="submit" id="importBtn">
+              <svg class="icon"><use href="#i-link" /></svg>Grab
+            </button>
+          </form>
         </div>
-
-        <details>
-          <summary>Other links</summary>
-          <div class="field">
-            <label for="raw">Direct file</label>
-            <div class="copyrow">
-              <input id="raw" type="text" readonly />
-              <button type="button" data-copy="raw">Copy</button>
-            </div>
-          </div>
-          <div class="field">
-            <label for="del">Delete link — save this, it is shown once</label>
-            <div class="copyrow">
-              <input id="del" type="text" readonly />
-              <button type="button" data-copy="del">Copy</button>
-            </div>
-          </div>
-        </details>
       </section>
 
-      <p id="error" class="error" hidden></p>
+      <section class="section" id="progressSection" hidden>
+        <div id="progress" class="progress"><div id="bar" class="bar"></div></div>
+      </section>
 
-      <footer class="footnote">
-        Self-hosted. <a href="/api/limits">limits</a>
-      </footer>
+      <section class="section rows" id="result" hidden>
+        <button type="button" class="row" data-copy="url">
+          <svg class="icon"><use href="#i-link" /></svg>
+          <span class="row-text">
+            <span class="row-label">Share link</span>
+            <span class="row-desc" id="urlDesc"></span>
+          </span>
+          <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
+        </button>
+        <button type="button" class="row" data-copy="rawUrl">
+          <svg class="icon"><use href="#i-arrow" /></svg>
+          <span class="row-text">
+            <span class="row-label">Direct file</span>
+            <span class="row-desc" id="rawUrlDesc"></span>
+          </span>
+          <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
+        </button>
+        <button type="button" class="row" data-copy="deleteUrl">
+          <svg class="icon"><use href="#i-trash" /></svg>
+          <span class="row-text">
+            <span class="row-label">Delete link</span>
+            <span class="row-desc">Save it — shown once</span>
+          </span>
+          <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
+        </button>
+      </section>
+
+      <section class="section" id="errorSection" hidden>
+        <p class="error"><svg class="icon"><use href="#i-alert" /></svg><span id="error"></span></p>
+      </section>
+
+      <section class="section">
+        <a class="row" href="https://github.com/7qob" target="_blank" rel="noopener noreferrer">
+          <svg class="icon"><use href="#i-github" /></svg>
+          <span class="row-text">
+            <span class="row-label">GitHub</span>
+            <span class="row-desc">7qob — source for this and the rest</span>
+          </span>
+          <span class="row-mark"><svg class="icon"><use href="#i-arrow" /></svg></span>
+        </a>
+      </section>
     </main>
 
     <script>
-      const dropzone = document.getElementById('dropzone');
+      const stage = document.getElementById('stage');
       const picker = document.getElementById('picker');
+      const progressSection = document.getElementById('progressSection');
       const progress = document.getElementById('progress');
       const bar = document.getElementById('bar');
       const result = document.getElementById('result');
+      const errorSection = document.getElementById('errorSection');
       const errorEl = document.getElementById('error');
       const hint = document.getElementById('hint');
       const importForm = document.getElementById('importForm');
       const importUrl = document.getElementById('importUrl');
       const importBtn = document.getElementById('importBtn');
+
+      /** Copy targets live here, not in inputs — the rows show them as text. */
+      const values = {};
 
       fetch('/api/limits')
         .then((r) => r.json())
@@ -104,25 +161,26 @@
       }
 
       ['dragenter', 'dragover'].forEach((type) =>
-        dropzone.addEventListener(type, (e) => {
+        stage.addEventListener(type, (e) => {
           e.preventDefault();
-          dropzone.classList.add('active');
+          stage.classList.add('active');
         }),
       );
 
       ['dragleave', 'drop'].forEach((type) =>
-        dropzone.addEventListener(type, (e) => {
+        stage.addEventListener(type, (e) => {
           e.preventDefault();
-          dropzone.classList.remove('active');
+          stage.classList.remove('active');
         }),
       );
 
-      dropzone.addEventListener('drop', (e) => {
+      stage.addEventListener('drop', (e) => {
         const file = e.dataTransfer?.files?.[0];
         if (file) return upload(file);
 
         // Dragging an image out of another tab hands us a URL, not a file.
-        const dropped = e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
+        const dropped =
+          e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
         if (dropped && /^https?:\/\//i.test(dropped.trim())) grab(dropped.trim());
       });
 
@@ -136,21 +194,17 @@
         if (picker.files[0]) upload(picker.files[0]);
       });
 
-      document.querySelectorAll('[data-copy]').forEach((button) => {
-        button.addEventListener('click', async () => {
-          const input = document.getElementById(button.dataset.copy);
-          await navigator.clipboard.writeText(input.value);
-          const original = button.textContent;
-          button.textContent = 'Copied';
-          setTimeout(() => (button.textContent = original), 1200);
+      document.querySelectorAll('[data-copy]').forEach((row) => {
+        const mark = row.querySelector('.row-mark use');
+        row.addEventListener('click', async () => {
+          await navigator.clipboard.writeText(values[row.dataset.copy] || '');
+          mark.setAttribute('href', '#i-check');
+          setTimeout(() => mark.setAttribute('href', '#i-copy'), 1200);
         });
       });
 
       function upload(file) {
-        errorEl.hidden = true;
-        result.hidden = true;
-        progress.hidden = false;
-        bar.style.width = '0%';
+        start();
 
         const body = new FormData();
         body.append('file', file);
@@ -161,13 +215,11 @@
         xhr.open('POST', '/api/upload');
 
         xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            bar.style.width = (e.loaded / e.total) * 100 + '%';
-          }
+          if (e.lengthComputable) bar.style.width = (e.loaded / e.total) * 100 + '%';
         });
 
         xhr.addEventListener('load', () => {
-          progress.hidden = true;
+          progressSection.hidden = true;
           let payload;
           try {
             payload = JSON.parse(xhr.responseText);
@@ -179,7 +231,7 @@
         });
 
         xhr.addEventListener('error', () => {
-          progress.hidden = true;
+          progressSection.hidden = true;
           fail('Network error');
         });
 
@@ -188,12 +240,9 @@
 
       /** Pull a remote URL server-side. No upload progress exists to report. */
       function grab(url) {
-        errorEl.hidden = true;
-        result.hidden = true;
+        start();
         importUrl.value = url;
         importBtn.disabled = true;
-        importBtn.textContent = 'Grabbing';
-        progress.hidden = false;
         progress.classList.add('indeterminate');
 
         fetch('/api/import', {
@@ -209,29 +258,31 @@
           })
           .catch((e) => fail(e.message))
           .finally(() => {
-            progress.hidden = true;
+            progressSection.hidden = true;
             progress.classList.remove('indeterminate');
             importBtn.disabled = false;
-            importBtn.textContent = 'Grab';
           });
       }
 
+      function start() {
+        errorSection.hidden = true;
+        result.hidden = true;
+        progressSection.hidden = false;
+        bar.style.width = '0%';
+      }
+
       function show(payload) {
-        document.getElementById('link').value = payload.url;
-        document.getElementById('raw').value = payload.rawUrl;
-        document.getElementById('del').value = payload.deleteUrl;
-        const embedNote = payload.embeddable
-          ? 'Embeds inline in Discord.'
-          : 'Shows as a link preview in Discord.';
-        document.getElementById('embedNote').textContent = payload.via
-          ? `${embedNote} Grabbed via ${payload.via}.`
-          : embedNote;
+        values.url = payload.url;
+        values.rawUrl = payload.rawUrl;
+        values.deleteUrl = payload.deleteUrl;
+        document.getElementById('urlDesc').textContent = payload.url;
+        document.getElementById('rawUrlDesc').textContent = payload.rawUrl;
         result.hidden = false;
       }
 
       function fail(message) {
         errorEl.textContent = message;
-        errorEl.hidden = false;
+        errorSection.hidden = false;
       }
     </script>
   </body>

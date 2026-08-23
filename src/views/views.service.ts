@@ -57,22 +57,29 @@ export class ViewsService {
     <meta property="og:description" content="${size} · ${kind}">
     <meta property="og:url" content="${pageUrl}">
     ${mediaTags}
-    <meta name="theme-color" content="#101418">
+    <meta name="theme-color" content="#0e0e0e">
 
     <link rel="stylesheet" href="/style.css">
   </head>
   <body>
-    <main class="viewer">
-      ${preview}
-      <div class="meta">
+    <main class="panel">
+      <header class="section head">
+        <a class="brand" href="/">stego</a>
+        <span class="handle">7qob</span>
+      </header>
+      <section class="section">${preview}</section>
+      <section class="section meta">
         <h1>${name}</h1>
         <p>${size} · ${kind}</p>
-        <div class="actions">
-          <a class="button" href="${downloadUrl}">Download</a>
-          <a class="button ghost" href="${rawUrl}">Direct link</a>
-        </div>
-      </div>
-      <footer><a href="/">stego</a></footer>
+      </section>
+      <section class="section actions">
+        <a class="button" href="${downloadUrl}">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download
+        </a>
+        <a class="button" href="${rawUrl}">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>Direct link
+        </a>
+      </section>
     </main>
   </body>
 </html>`;
@@ -85,15 +92,20 @@ export class ViewsService {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Not found — stego</title>
+    <meta name="theme-color" content="#0e0e0e">
     <link rel="stylesheet" href="/style.css">
   </head>
   <body>
-    <main class="viewer">
-      <div class="meta">
+    <main class="panel">
+      <header class="section head">
+        <a class="brand" href="/">stego</a>
+        <span class="handle">7qob</span>
+      </header>
+      <section class="section meta">
         <h1>Not found</h1>
         <p>This file does not exist, or it expired.</p>
-        <div class="actions"><a class="button" href="/">Upload something</a></div>
-      </div>
+      </section>
+      <section class="section actions"><a class="button" href="/">Upload something</a></section>
     </main>
   </body>
 </html>`;
