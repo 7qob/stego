@@ -96,29 +96,54 @@ fi
 
 step "3/6  tunnel '$TUNNEL_NAME'"
 
+# cloudflared's JSON output is not reliably clean: some versions print notices
+# (an upgrade warning, for one) to stdout ahead of the array, and key casing has
+# changed across releases. Skip to the first '[' and match keys
+# case-insensitively, so a cosmetic banner cannot fail a deploy.
 tunnel_id() {
   cloudflared tunnel list --output json 2>/dev/null | python3 -c '
 import json, sys
+
 name = sys.argv[1]
+raw = sys.stdin.read()
+
+start = raw.find("[")
+if start == -1:
+    sys.exit(0)
 try:
-    tunnels = json.load(sys.stdin)
+    tunnels = json.loads(raw[start:])
 except Exception:
     sys.exit(0)
+
+
+def get(t, key):
+    for k, v in t.items():
+        if k.lower() == key:
+            return v
+    return None
+
+
 for t in tunnels:
-    if t.get("name") == name and not t.get("deleted_at"):
-        print(t["id"])
+    if get(t, "name") == name and not get(t, "deleted_at"):
+        print(get(t, "id") or "")
         break
 ' "$1"
 }
 
-TUNNEL_ID="$(tunnel_id "$TUNNEL_NAME")"
+# TUNNEL_ID can be set in the environment to bypass the lookup entirely.
+TUNNEL_ID="${TUNNEL_ID:-$(tunnel_id "$TUNNEL_NAME")}"
 
 if [ -n "$TUNNEL_ID" ]; then
   note "exists: $TUNNEL_ID"
 else
   cloudflared tunnel create "$TUNNEL_NAME"
   TUNNEL_ID="$(tunnel_id "$TUNNEL_NAME")"
-  [ -n "$TUNNEL_ID" ] || die "tunnel created but its ID could not be read back"
+  [ -n "$TUNNEL_ID" ] || die "tunnel '$TUNNEL_NAME' was created, but its ID could not be read back
+       from 'cloudflared tunnel list'. The tunnel itself is fine — only the
+       lookup failed. Copy the ID from the 'Created tunnel' line above and
+       rerun, which skips the lookup:
+
+         TUNNEL_ID=<the-uuid> $0 $TARGET_HOSTNAME $TUNNEL_NAME"
   note "created: $TUNNEL_ID"
 fi
 
