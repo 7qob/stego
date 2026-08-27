@@ -50,6 +50,26 @@ export class DbService implements OnModuleInit, OnModuleDestroy {
     // Added with URL import. Databases created before that need the column
     // bolted on; ALTER TABLE ADD COLUMN has no IF NOT EXISTS, so check first.
     this.addColumnIfMissing('files', 'source_url', 'TEXT');
+
+    // Privacy and private-link columns. All nullable or defaulted, so an
+    // existing database keeps working with every new feature switched off for
+    // rows that predate it — an old row simply has no password, no burn
+    // count, no encryption and is not in the library.
+    this.addColumnIfMissing('files', 'key_material', 'TEXT');
+    this.addColumnIfMissing('files', 'digest', 'TEXT');
+    this.addColumnIfMissing('files', 'max_downloads', 'INTEGER');
+    this.addColumnIfMissing('files', 'password_hash', 'TEXT');
+    this.addColumnIfMissing('files', 'e2e', 'INTEGER NOT NULL DEFAULT 0');
+    this.addColumnIfMissing('files', 'in_library', 'INTEGER NOT NULL DEFAULT 0');
+    this.addColumnIfMissing('files', 'label', 'TEXT');
+    this.addColumnIfMissing('files', 'tags', 'TEXT');
+    this.addColumnIfMissing('files', 'note', 'TEXT');
+    this.addColumnIfMissing('files', 'last_seen_at', 'INTEGER');
+
+    this.database.exec(`
+      CREATE INDEX IF NOT EXISTS idx_files_library ON files(in_library);
+      CREATE INDEX IF NOT EXISTS idx_files_digest  ON files(digest);
+    `);
   }
 
   private addColumnIfMissing(table: string, column: string, definition: string): void {

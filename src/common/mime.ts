@@ -22,14 +22,72 @@ const EMBEDDABLE = new Set([
   'video/webm',
   'video/quicktime',
   'audio/mpeg',
+  'audio/mp4',
   'audio/ogg',
   'audio/wav',
   'audio/x-wav',
   'audio/flac',
 ]);
 
-/** Embeddable types plus things a browser can safely display but Discord won't embed. */
-const INLINE_SAFE = new Set([...EMBEDDABLE, 'application/pdf', 'text/plain']);
+/**
+ * Embeddable types plus things a browser can safely display but Discord will
+ * not embed. Everything here is inert: a decoder bug aside, none of these can
+ * execute script on our origin, which is the only property that matters.
+ *
+ * Still deliberately absent, and it must stay that way: `text/html`,
+ * `image/svg+xml`, `application/xhtml+xml`, `text/xml`. Those are scripting
+ * containers. Widening this list is the single easiest way to turn this app
+ * into a stored-XSS delivery service.
+ */
+const INLINE_SAFE = new Set([
+  ...EMBEDDABLE,
+  // Images browsers render but Discord ignores.
+  'image/bmp',
+  'image/vnd.microsoft.icon',
+  'image/x-icon',
+  'image/jxl',
+  'image/heic',
+  'image/heif',
+  // Media containers a browser may or may not decode; harmless to try.
+  'video/ogg',
+  'video/x-matroska',
+  'audio/webm',
+  'audio/aac',
+  'audio/opus',
+  'application/pdf',
+  'text/plain',
+]);
+
+/**
+ * Text-ish types that are safe as `text/plain` but must never be served with
+ * their own Content-Type: a browser rendering `text/xml` or `text/csv` inline
+ * is at best inconsistent and at worst, for anything XML-shaped, scriptable.
+ *
+ * Serving them as plain text is what lets you paste a log, a diff, a JSON blob
+ * or a subtitle file and have the link just open in a browser.
+ */
+const AS_PLAIN_TEXT = new Set([
+  'text/markdown',
+  'text/csv',
+  'text/tab-separated-values',
+  'text/x-log',
+  'text/x-diff',
+  'text/x-patch',
+  'text/vtt',
+  'text/calendar',
+  'text/x-python',
+  'text/x-shellscript',
+  'application/json',
+  'application/ld+json',
+  'application/x-ndjson',
+  'application/yaml',
+  'application/x-yaml',
+  'application/toml',
+  'application/x-sh',
+  'application/javascript',
+  'text/javascript',
+  'text/css',
+]);
 
 export interface ServingDecision {
   /** Content-Type we will actually send. */
@@ -53,6 +111,18 @@ export function decideServing(storedMime: string): ServingDecision {
     };
   }
 
+  // Note the downgrade: the *stored* type stays whatever it was, but what
+  // goes on the wire is text/plain. `application/javascript` served as
+  // text/plain is a file you can read; served as itself it is a script
+  // another site can pull in from your origin.
+  if (AS_PLAIN_TEXT.has(mime)) {
+    return {
+      contentType: 'text/plain; charset=utf-8',
+      disposition: 'inline',
+      embeddable: false,
+    };
+  }
+
   return {
     contentType: 'application/octet-stream',
     disposition: 'attachment',
@@ -64,6 +134,12 @@ export function decideServing(storedMime: string): ServingDecision {
 export function isStegoCarrier(mime: string): boolean {
   const m = mime.split(';')[0].trim().toLowerCase();
   return m === 'image/png' || m === 'image/bmp' || m === 'image/webp';
+}
+
+/** Types the metadata scrubber knows how to walk without re-encoding. */
+export function isScrubbable(mime: string): boolean {
+  const m = mime.split(';')[0].trim().toLowerCase();
+  return m === 'image/png' || m === 'image/jpeg' || m === 'image/webp' || m === 'image/gif';
 }
 
 /**
@@ -89,6 +165,10 @@ const EXTENSIONS: Record<string, string> = {
   'image/webp': '.webp',
   'image/avif': '.avif',
   'image/bmp': '.bmp',
+  'image/heic': '.heic',
+  'image/jxl': '.jxl',
+  'image/tiff': '.tiff',
+  'image/vnd.microsoft.icon': '.ico',
   'video/mp4': '.mp4',
   'video/webm': '.webm',
   'video/quicktime': '.mov',
@@ -97,7 +177,23 @@ const EXTENSIONS: Record<string, string> = {
   'audio/wav': '.wav',
   'audio/x-wav': '.wav',
   'audio/flac': '.flac',
+  'audio/mp4': '.m4a',
+  'audio/aac': '.aac',
+  'audio/opus': '.opus',
+  'audio/webm': '.weba',
+  'video/ogg': '.ogv',
+  'video/x-matroska': '.mkv',
+  'video/x-msvideo': '.avi',
   'application/pdf': '.pdf',
+  'application/zip': '.zip',
+  'application/gzip': '.gz',
+  'application/x-7z-compressed': '.7z',
+  'application/x-rar-compressed': '.rar',
+  'application/x-xz': '.xz',
+  'application/zstd': '.zst',
+  'application/json': '.json',
+  'text/markdown': '.md',
+  'text/csv': '.csv',
   'text/plain': '.txt',
 };
 

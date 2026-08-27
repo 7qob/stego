@@ -1,5 +1,16 @@
 import { join } from 'node:path';
 
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, Math.trunc(value)));
+}
+
+/** Leading slash, no trailing slash, so `${path}/api/...` always composes. */
+function normalisePath(value: string): string {
+  const trimmed = `/${value.trim().replace(/^\/+|\/+$/g, '')}`;
+  return trimmed === '/' ? '/admin' : trimmed;
+}
+
 const dataDir = process.env.STEGO_DATA_DIR ?? join(process.cwd(), 'data');
 const retentionDays = Number(process.env.STEGO_RETENTION_DAYS ?? 0);
 
@@ -30,6 +41,143 @@ export const config = {
     defaultMinutes: Number(process.env.STEGO_EXPIRY_DEFAULT_MINUTES ?? 60),
     maxMinutes: Number(process.env.STEGO_EXPIRY_MAX_MINUTES ?? 7 * 24 * 60),
   },
+
+  /**
+   * Public file IDs. 10 characters of a 32-symbol alphabet is ~50 bits, which
+   * is fine against a casual guess and thin against someone spraying a
+   * scanner at the origin. 16 is ~80 bits and costs six characters.
+   */
+  idLength: clamp(Number(process.env.STEGO_ID_LENGTH ?? 16), 8, 64),
+
+  /**
+   * Privacy posture. The defaults assume the answer to "should this leak?"
+   * is no, and every switch here exists to turn something back on.
+   */
+  privacy: {
+    /**
+     * Strip EXIF/XMP/IPTC and every other metadata container out of uploaded
+     * images. GPS coordinates in a phone photo are the single most common way
+     * a "just an image" upload deanonymises whoever posted it.
+     *
+     * The scrubber works at the container level (drops chunks/segments) and
+     * never re-encodes pixels, so an LSB-stego carrier survives it intact.
+     */
+    stripMetadata: process.env.STEGO_STRIP_METADATA !== '0',
+
+    /**
+     * Encrypt blobs on disk with AES-256-CTR under a key derived from the
+     * server secret. Protects a stolen or backed-up data volume; it does
+     * nothing against someone who already has the running process.
+     */
+    encryptAtRest: process.env.STEGO_ENCRYPT_AT_REST !== '0',
+
+    /**
+     * Keep the original filename out of the database, replacing it with a
+     * neutral `file<ext>`. Names leak plenty on their own —
+     * `Q3-payroll-final.xlsx` identifies a company and a person.
+     */
+    forgetFilenames: process.env.STEGO_FORGET_FILENAMES === '1',
+
+    /**
+     * `X-Robots-Tag: noindex` plus a deny-all robots.txt. A shared link that
+     * turns up in a search index is no longer a shared link.
+     */
+    noIndex: process.env.STEGO_NOINDEX !== '0',
+
+    /**
+     * Nest logs a stack trace with a URL in it on any unhandled error, and a
+     * URL contains a file ID. On by default: replace the process logger with
+     * one that redacts IDs, tokens and IP addresses.
+     */
+    scrubLogs: process.env.STEGO_SCRUB_LOGS !== '0',
+
+    /**
+     * Round `Content-Length` up to a multiple of this many bytes by padding
+     * the stored blob, so an observer who can see only transfer sizes cannot
+     * fingerprint a known file by its exact length. 0 disables it.
+     *
+     * Costs disk and breaks nothing: the padding lives after the plaintext
+     * and is never served, because we serve `size` bytes and stop.
+     */
+    padToBytes: Math.max(0, Number(process.env.STEGO_PAD_TO_BYTES ?? 0)),
+  },
+
+  /** Link-sharing options offered per upload. */
+  links: {
+    /**
+     * Burn-after-reading. A file with `maxDownloads` set is deleted the
+     * moment the count is reached.
+     */
+    burnEnabled: process.env.STEGO_BURN_ENABLED !== '0',
+
+    /** Passphrase-locked links (server-side gate, scrypt-hashed). */
+    passwordEnabled: process.env.STEGO_LINK_PASSWORD_ENABLED !== '0',
+
+    /**
+     * End-to-end encrypted links. The browser encrypts before upload and puts
+     * the key in the URL fragment, which no browser ever sends to a server —
+     * so this instance stores bytes it genuinely cannot read.
+     */
+    e2eEnabled: process.env.STEGO_E2E_ENABLED !== '0',
+
+    /** How long an unlock cookie is honoured for a password-locked file. */
+    unlockTtlMs: Number(process.env.STEGO_UNLOCK_TTL_MS ?? 60 * 60 * 1000),
+  },
+
+  /**
+   * Admin panel and library. With no password set the whole surface returns
+   * 404 — not 401 — so an instance without one does not advertise that an
+   * admin panel is a thing this software has.
+   */
+  admin: {
+    password: process.env.STEGO_ADMIN_PASSWORD ?? '',
+
+    /** scrypt string from `npm run admin:hash`. Preferred over the plaintext. */
+    passwordHash: process.env.STEGO_ADMIN_PASSWORD_HASH ?? '',
+
+    sessionTtlMs: Number(process.env.STEGO_ADMIN_SESSION_TTL_MS ?? 12 * 60 * 60 * 1000),
+
+    /** Failed logins from one client before it is locked out. */
+    maxAttempts: Number(process.env.STEGO_ADMIN_MAX_ATTEMPTS ?? 5),
+
+    lockoutMs: Number(process.env.STEGO_ADMIN_LOCKOUT_MS ?? 15 * 60 * 1000),
+
+    /**
+     * Move the panel off `/admin`. Costs nothing and takes the instance out
+     * of every scanner wordlist at once.
+     */
+    path: normalisePath(process.env.STEGO_ADMIN_PATH ?? '/admin'),
+  },
+
+  /** Rate limits. Counted against a salted hash of the client address. */
+  rateLimit: {
+    enabled: process.env.STEGO_RATE_LIMIT !== '0',
+
+    windowMs: Number(process.env.STEGO_RATE_WINDOW_MS ?? 60 * 1000),
+
+    uploads: Number(process.env.STEGO_RATE_UPLOADS ?? 20),
+    imports: Number(process.env.STEGO_RATE_IMPORTS ?? 10),
+    reads: Number(process.env.STEGO_RATE_READS ?? 240),
+
+    /** Misses are counted separately: a 404 flood is ID enumeration. */
+    misses: Number(process.env.STEGO_RATE_MISSES ?? 30),
+
+    logins: Number(process.env.STEGO_RATE_LOGINS ?? 10),
+  },
+
+  /**
+   * Set only when this instance sits behind a proxy you control (Cloudflare
+   * Tunnel, nginx). Off by default: with it on, an attacker can forge
+   * `X-Forwarded-For` and defeat every rate limit by sending a new one each
+   * request.
+   */
+  trustProxy: process.env.STEGO_TRUST_PROXY === '1',
+
+  /** Comma-separated origins allowed to call the API from a browser. */
+  corsOrigins: (process.env.STEGO_CORS_ORIGINS ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean),
 
   /** URL import (`POST /api/import`). */
   remote: {

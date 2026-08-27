@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>stego</title>
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#0e0e0e" />
     <link rel="stylesheet" href="/style.css" />
   </head>
@@ -43,6 +45,20 @@
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </symbol>
+      <symbol id="i-fire" viewBox="0 0 24 24">
+        <path d="M12 2s4 4 4 8a4 4 0 0 1-8 0c0-2 1-3 1-3s-3 2-3 6a6 6 0 0 0 12 0c0-6-6-11-6-11z" />
+      </symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      </symbol>
     </svg>
 
     <main class="panel">
@@ -77,6 +93,30 @@
             <input id="minutes" type="number" min="0" step="1" inputmode="numeric" value="60" />
             <span id="minutesHint">minutes</span>
           </div>
+
+          <div class="options" id="options" hidden>
+            <div class="option" id="burnRow" hidden>
+              <svg class="icon"><use href="#i-fire" /></svg>
+              <label for="burn">Burn after</label>
+              <input id="burn" type="number" min="0" step="1" inputmode="numeric" placeholder="0" />
+              <span>reads · 0 for unlimited</span>
+            </div>
+
+            <div class="option" id="lockRow" hidden>
+              <svg class="icon"><use href="#i-lock" /></svg>
+              <label for="lock">Passphrase</label>
+              <input id="lock" type="password" autocomplete="new-password" placeholder="optional" />
+            </div>
+
+            <div class="option" id="privateRow" hidden>
+              <svg class="icon"><use href="#i-shield" /></svg>
+              <label for="private">Private link</label>
+              <input id="private" type="checkbox" />
+              <span>encrypt here · the server never gets the key</span>
+            </div>
+          </div>
+
+          <p class="note" id="privacyNote"></p>
         </div>
       </section>
 
@@ -90,6 +130,14 @@
           <span class="row-text">
             <span class="row-label">Share link</span>
             <span class="row-desc" id="urlDesc"></span>
+          </span>
+          <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
+        </button>
+        <button type="button" class="row" data-copy="del" id="deleteRow" hidden>
+          <svg class="icon"><use href="#i-trash" /></svg>
+          <span class="row-text">
+            <span class="row-label">Delete link</span>
+            <span class="row-desc" id="deleteDesc"></span>
           </span>
           <span class="row-mark"><svg class="icon"><use href="#i-copy" /></svg></span>
         </button>
@@ -112,190 +160,6 @@
       </section>
     </main>
 
-    <script>
-      const stage = document.getElementById('stage');
-      const picker = document.getElementById('picker');
-      const progressSection = document.getElementById('progressSection');
-      const progress = document.getElementById('progress');
-      const bar = document.getElementById('bar');
-      const result = document.getElementById('result');
-      const errorSection = document.getElementById('errorSection');
-      const errorEl = document.getElementById('error');
-      const hint = document.getElementById('hint');
-      const importForm = document.getElementById('importForm');
-      const importUrl = document.getElementById('importUrl');
-      const importBtn = document.getElementById('importBtn');
-      const minutes = document.getElementById('minutes');
-      const minutesHint = document.getElementById('minutesHint');
-      const expiryNote = document.getElementById('expiryNote');
-
-      /** Copy targets live here, not in inputs — the rows show them as text. */
-      const values = {};
-
-      fetch('/api/limits')
-        .then((r) => r.json())
-        .then((l) => {
-          hint.textContent = `or click to choose · up to ${formatBytes(l.maxFileSize)}`;
-          if (l.importEnabled) importForm.hidden = false;
-          minutes.value = String(l.defaultExpiryMinutes);
-          minutes.max = String(l.maxExpiryMinutes);
-          minutesHint.textContent = 'minutes · 0 keeps it';
-        })
-        .catch(() => {});
-
-      function formatBytes(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        const units = ['KB', 'MB', 'GB', 'TB'];
-        let v = bytes / 1024;
-        let i = 0;
-        while (v >= 1024 && i < units.length - 1) {
-          v /= 1024;
-          i++;
-        }
-        return v.toFixed(v < 10 ? 1 : 0) + ' ' + units[i];
-      }
-
-      ['dragenter', 'dragover'].forEach((type) =>
-        stage.addEventListener(type, (e) => {
-          e.preventDefault();
-          stage.classList.add('active');
-        }),
-      );
-
-      ['dragleave', 'drop'].forEach((type) =>
-        stage.addEventListener(type, (e) => {
-          e.preventDefault();
-          stage.classList.remove('active');
-        }),
-      );
-
-      stage.addEventListener('drop', (e) => {
-        const file = e.dataTransfer?.files?.[0];
-        if (file) return upload(file);
-
-        // Dragging an image out of another tab hands us a URL, not a file.
-        const dropped =
-          e.dataTransfer?.getData('text/uri-list') || e.dataTransfer?.getData('text/plain');
-        if (dropped && /^https?:\/\//i.test(dropped.trim())) grab(dropped.trim());
-      });
-
-      importForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const value = importUrl.value.trim();
-        if (value) grab(value);
-      });
-
-      picker.addEventListener('change', () => {
-        if (picker.files[0]) upload(picker.files[0]);
-      });
-
-      document.querySelectorAll('[data-copy]').forEach((row) => {
-        const mark = row.querySelector('.row-mark use');
-        row.addEventListener('click', async () => {
-          await navigator.clipboard.writeText(values[row.dataset.copy] || '');
-          mark.setAttribute('href', '#i-check');
-          setTimeout(() => mark.setAttribute('href', '#i-copy'), 1200);
-        });
-      });
-
-      function upload(file) {
-        start();
-
-        const body = new FormData();
-        // Ahead of the file: multer only has this in req.body if the field
-        // arrives before the part it has to stream to disk.
-        body.append('minutes', chosenMinutes());
-        body.append('file', file);
-
-        // XHR rather than fetch: it reports upload progress, which matters
-        // when the server is a Pi on a home uplink.
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/upload');
-
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) bar.style.width = (e.loaded / e.total) * 100 + '%';
-        });
-
-        xhr.addEventListener('load', () => {
-          progressSection.hidden = true;
-          let payload;
-          try {
-            payload = JSON.parse(xhr.responseText);
-          } catch {
-            return fail('Unexpected server response');
-          }
-          if (xhr.status >= 400) return fail(payload.message || 'Upload failed');
-          show(payload);
-        });
-
-        xhr.addEventListener('error', () => {
-          progressSection.hidden = true;
-          fail('Network error');
-        });
-
-        xhr.send(body);
-      }
-
-      /** Pull a remote URL server-side. No upload progress exists to report. */
-      function grab(url) {
-        start();
-        importUrl.value = url;
-        importBtn.disabled = true;
-        progress.classList.add('indeterminate');
-
-        fetch('/api/import', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ url, minutes: Number(chosenMinutes()) }),
-        })
-          .then(async (response) => {
-            const payload = await response.json().catch(() => ({}));
-            if (!response.ok) throw new Error(payload.message || 'Import failed');
-            show(payload);
-            importUrl.value = '';
-          })
-          .catch((e) => fail(e.message))
-          .finally(() => {
-            progressSection.hidden = true;
-            progress.classList.remove('indeterminate');
-            importBtn.disabled = false;
-          });
-      }
-
-      /** Blank or negative is the same as "no timer". */
-      function chosenMinutes() {
-        const value = parseInt(minutes.value, 10);
-        return String(Number.isFinite(value) && value > 0 ? value : 0);
-      }
-
-      function formatExpiry(expiresAt) {
-        if (!expiresAt) return 'Kept until you delete it';
-        const left = Math.max(0, Math.round((expiresAt - Date.now()) / 60000));
-        const when = new Date(expiresAt).toLocaleTimeString([], {
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-        return `Deletes in ${left} min · ${when}`;
-      }
-
-      function start() {
-        errorSection.hidden = true;
-        result.hidden = true;
-        progressSection.hidden = false;
-        bar.style.width = '0%';
-      }
-
-      function show(payload) {
-        values.url = payload.url;
-        document.getElementById('urlDesc').textContent = payload.url;
-        expiryNote.textContent = formatExpiry(payload.expiresAt);
-        result.hidden = false;
-      }
-
-      function fail(message) {
-        errorEl.textContent = message;
-        errorSection.hidden = false;
-      }
-    </script>
+    <script src="/app.js"></script>
   </body>
 </html>
