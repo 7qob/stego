@@ -359,13 +359,25 @@ export class FilesController {
       return;
     }
 
+    const ceiling = config.privacy.maxCacheSeconds;
+
     if (file.expiresAt === null) {
-      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      // No timer, so nothing bounds this except the instance-wide ceiling.
+      // `immutable` is still correct — an ID never points at different bytes
+      // — but only within a window short enough that a manual delete
+      // actually propagates. See privacy.maxCacheSeconds.
+      if (ceiling <= 0) {
+        res.setHeader('Cache-Control', 'no-store');
+        return;
+      }
+      res.setHeader('Cache-Control', `public, max-age=${ceiling}, immutable`);
       return;
     }
 
     const secondsLeft = Math.max(0, Math.floor((file.expiresAt - Date.now()) / 1000));
-    res.setHeader('Cache-Control', `public, max-age=${secondsLeft}, must-revalidate`);
+    const maxAge = ceiling > 0 ? Math.min(secondsLeft, ceiling) : secondsLeft;
+
+    res.setHeader('Cache-Control', `public, max-age=${maxAge}, must-revalidate`);
     res.setHeader('Expires', new Date(file.expiresAt).toUTCString());
   }
 

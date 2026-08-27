@@ -92,6 +92,39 @@ function matches(buffer: Buffer, signature: Signature): boolean {
   return signature.verify ? signature.verify(buffer) : true;
 }
 
+/**
+ * Does this look like plain text?
+ *
+ * Only ever consulted when no magic number matched and the client told us
+ * nothing useful, which is the common case for a log, a config file or a
+ * `.txt` uploaded by anything that is not a browser file picker. Getting a
+ * readable link out of those instead of an opaque download is most of what
+ * "more compatible" means in practice.
+ *
+ * The markup check is not about rendering. Text/plain is safe to serve inline
+ * — `nosniff` guarantees the browser will not re-parse it as HTML — but the
+ * documented rule of this app is that HTML and SVG become octet-stream
+ * attachments, and a sniffer that quietly promoted them to an inline type
+ * would be the kind of change nobody notices until it matters.
+ */
+function looksLikeText(head: Buffer): boolean {
+  if (head.length === 0) return false;
+
+  for (const byte of head) {
+    // NUL, or a control character that is not tab/LF/CR/FF. One of these in
+    // the first 64 bytes means binary.
+    if (byte === 0) return false;
+    if (byte < 0x09) return false;
+    if (byte > 0x0d && byte < 0x20) return false;
+    if (byte === 0x7f) return false;
+  }
+
+  const start = head.toString('utf8').trimStart().slice(0, 16).toLowerCase();
+  if (start.startsWith('<') && /^<[!?a-z/]/.test(start)) return false;
+
+  return true;
+}
+
 /** The type the first bytes say this is, or null if nothing recognises them. */
 export function sniffMime(head: Buffer): string | null {
   for (const signature of SIGNATURES) {
@@ -134,7 +167,14 @@ export function resolveMime(claimed: string | undefined, head: Buffer): string {
     return sniffed;
   }
 
-  if (!normalised || claimIsScriptable) return 'application/octet-stream';
+  if (claimIsScriptable) return 'application/octet-stream';
+
+  // A client that said nothing, or said "binary" over something that is
+  // plainly not binary. curl without a type, a fetch() of a bare Blob, and
+  // most mobile share sheets all land here.
+  if (!normalised || normalised === 'application/octet-stream') {
+    return looksLikeText(head) ? 'text/plain' : 'application/octet-stream';
+  }
 
   return normalised;
 }

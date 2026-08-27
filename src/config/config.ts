@@ -100,6 +100,21 @@ export const config = {
      * and is never served, because we serve `size` bytes and stop.
      */
     padToBytes: Math.max(0, Number(process.env.STEGO_PAD_TO_BYTES ?? 0)),
+
+    /**
+     * Ceiling on how long anything may be cached downstream, in seconds.
+     *
+     * A file with a delete timer is already capped at its own remaining TTL.
+     * This is the cap for files with no timer at all, and it exists because
+     * `immutable` on a permanent file means a deletion never reaches
+     * Cloudflare's edge or a visitor's disk cache — the origin forgets and
+     * everywhere else keeps serving. A day keeps edge caching genuinely
+     * useful for the Discord-embed case, where the hot window is minutes,
+     * while bounding how long a deleted file can outlive its deletion.
+     *
+     * Raise it if you would rather have the bandwidth than the bound.
+     */
+    maxCacheSeconds: Math.max(0, Number(process.env.STEGO_MAX_CACHE_SECONDS ?? 86_400)),
   },
 
   /** Link-sharing options offered per upload. */

@@ -37,6 +37,34 @@ services:
       # behaved before yt-dlp shipped in the image.
       STEGO_YTDLP_ENABLED: ${STEGO_YTDLP_ENABLED:-1}
 
+      # The one secret everything else derives from: at-rest encryption keys,
+      # the admin session signature, the unlock cookie signature. Set it in
+      # .env and back it up — without it, every encrypted blob is lost.
+      # Unset, the app generates <data>/secret.key on first boot, which works
+      # but leaves the key on the same disk as the data it protects.
+      STEGO_SECRET: ${STEGO_SECRET:-}
+
+      # Admin panel. With neither of these set, every admin route is a 404
+      # and the panel does not exist as far as anyone probing can tell.
+      # Prefer the hash — `npm run admin:hash` prints one.
+      STEGO_ADMIN_PASSWORD_HASH: ${STEGO_ADMIN_PASSWORD_HASH:-}
+      STEGO_ADMIN_PASSWORD: ${STEGO_ADMIN_PASSWORD:-}
+      STEGO_ADMIN_PATH: ${STEGO_ADMIN_PATH:-/admin}
+
+      # Privacy switches. All default on; set to 0 to turn one off.
+      STEGO_ENCRYPT_AT_REST: ${STEGO_ENCRYPT_AT_REST:-1}
+      STEGO_STRIP_METADATA: ${STEGO_STRIP_METADATA:-1}
+      STEGO_NOINDEX: ${STEGO_NOINDEX:-1}
+      STEGO_SCRUB_LOGS: ${STEGO_SCRUB_LOGS:-1}
+      # Off by default: replaces the uploader's filename with a neutral one.
+      STEGO_FORGET_FILENAMES: ${STEGO_FORGET_FILENAMES:-0}
+
+      # Behind a Cloudflare Tunnel this can be 1, which makes rate limits
+      # count real clients rather than the tunnel. Never set it on an origin
+      # that is directly reachable — a forged X-Forwarded-For defeats every
+      # limit in the app.
+      STEGO_TRUST_PROXY: ${STEGO_TRUST_PROXY:-0}
+
     # Uploads and stego.db. Put this on the SSD, never the SD card.
     # The container runs as uid 1000, same as the default Pi user, so a
     # directory you own is writable as-is.

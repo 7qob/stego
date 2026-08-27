@@ -8,7 +8,9 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "admin:hash": "node tools/hash-password.js",
+    "secret": "node -e \"console.log('STEGO_SECRET=' + require('crypto').randomBytes(32).toString('base64url'))\""
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",

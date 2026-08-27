@@ -412,8 +412,22 @@ button,
   color: var(--fg-mute);
 }
 
+/* Fixed label column so every control starts at the same x. Without it each
+   row sizes to its own label and the stack reads as four unrelated things. */
 .option label {
+  flex: none;
+  width: 6rem;
   color: var(--fg);
+  white-space: nowrap;
+}
+
+/* The trailing hint gives up space before anything else does, and truncates
+   rather than wrapping the row onto a second line. */
+.option > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .option .icon {
@@ -433,6 +447,21 @@ input[type="number"] {
   font-size: 0.8125rem;
   text-align: right;
   transition: border-color 120ms;
+}
+
+/* No spinner. The browser draws it as a light grey chip that ignores every
+   colour on this page, and there is nothing here worth stepping one at a
+   time — you type 60, or 5, or 0. Type it. */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
 }
 
 input[type="number"]:hover {
